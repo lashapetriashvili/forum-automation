@@ -6,7 +6,7 @@
 
 ## 📚 Navigation
 
-- [Local Development Mode (Fixtures) vs. Hyperbrowser](#-local-development-mode-fixtures-vs-hyperbrowser)
+- [Local Development Mode (Fixtures) vs. Hyperbrowser](#local-development-mode-fixtures-vs-hyperbrowser)
 - [Project Structure](#project-structure)
 - [What It Does](#what-it-does)
 - [Quick Start](#quick-start)
@@ -15,7 +15,7 @@
 - [Anti-Bot & Reliability](#anti-bot--reliability)
 - [Output Schema](#output-schema)
 - [Testing](#testing)
-- [Samples and Logs](#demo--samples)
+- [Samples and Logs](#samples-and-logs)
 - [Commands](#commands)
 
 ---
