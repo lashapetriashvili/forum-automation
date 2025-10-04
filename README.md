@@ -161,7 +161,7 @@ npm run scraper -- \
 
 ---
 
-## ⚙️ Quick Start
+## Quick Start
 
 ### Requirements
 - Node.js **v18+**
@@ -197,7 +197,7 @@ npm run scraper -- \
 
 ---
 
-## 🧩 Configuration
+## Configuration
 
 Set via `.env` or CLI flags:
 
@@ -248,7 +248,7 @@ Scopes include: `core:browser`, `adapter:quora`, `runner`, `storage`, and `cli`.
 
 ---
 
-## 🛡 Anti-Bot & Reliability
+## Anti-Bot & Reliability
 
 - ✅ **Headed mode** + Hyperbrowser **stealth**
 - ✏️ Human-like typing delays (~40ms)
@@ -260,7 +260,7 @@ Scopes include: `core:browser`, `adapter:quora`, `runner`, `storage`, and `cli`.
 
 ---
 
-## 📦 Output Schema
+## Output Schema
 
 ```ts
 type QAItem = {
@@ -277,7 +277,7 @@ type QAItem = {
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Unit tests use **JSDOM** to validate Quora’s DOM selectors.
 
@@ -296,16 +296,7 @@ npm test --file src/sites/quora/dom.test.ts
 
 ---
 
-## ⚠️ Known Limits & Next Steps
-
-- `matched_keywords` currently tag only the selected topic.
-  → To extend, integrate a **keyword matcher** (Funding, Growth Hacking, AI startups) in `collectQuestions`.
-- Quora DOM may evolve; selectors in `dom.ts` are isolated and unit-tested for easy updates.
-- Account creation remains **manual** per assignment scope.
-
----
-
-## 🧰 Commands
+## Commands
 
 ```bash
 # Install dependencies
