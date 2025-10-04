@@ -30,7 +30,6 @@ export async function waitForRedirectAndReady(
     }
   }
 
-  // 3) Fallback: readyState complete (SPA may not always hit it), then a tiny settle
   try {
     await page.waitForFunction(() => document.readyState === "complete", { timeout: 5000 });
   } catch {
