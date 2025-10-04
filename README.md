@@ -14,10 +14,8 @@
 - [How It Works (Architecture)](#how-it-works-architecture)
 - [Anti-Bot & Reliability](#anti-bot--reliability)
 - [Output Schema](#output-schema)
-
 - [Testing](#testing)
-- [Demo & Samples](#demo--samples)
-- [Known Limits & Next Steps](#known-limits--next-steps)
+- [Samples and Logs](#demo--samples)
 - [Commands](#commands)
 
 ---
@@ -34,7 +32,7 @@
 - ✅ **Additional plus — TDD-ready**: The codebase is structured for **test‑driven development**. Write unit tests first (selectors, DOM predicates, parsing), run them locally on fixtures, and only then validate on Hyperbrowser.
 
 ### Test‑Driven Workflow (recommended)
-1. **Write/Update tests** in `src/sites/quora/adapter.test.ts` (or add new ones).
+1. **Write/Update tests** in `src/sites/quora/dom.test.ts` (or add new ones).
 2. **Run tests locally** (fixtures via JSDOM): `npm test`.
 3. **Iterate** on selectors/logic until tests pass deterministically.
 4. **Smoke test** end‑to‑end in **local driver** (fixtures):
@@ -139,7 +137,7 @@ npm run scraper -- \
 │   │       ├── adapter.ts # Quora login/search/scraping logic
 │   │       ├── dom.ts     # Selectors and DOM predicates
 │   │       ├── routes.ts  # URL & fixture mapping
-│   │       ├── adapter.test.ts
+│   │       ├── dom.test.ts
 │   │       └── fixtures/*.html
 │   └── index.ts           # CLI entry point
 ├── output/                # generated JSON/CSV
@@ -185,7 +183,16 @@ npm run scraper # prompts: driver (local|hyper), site (quora), topic, limit
 
 ### Run (non-interactive)
 ```bash
-npm run scraper --   --driver hyper   --site quora   --topic "Growth Hacking"   --limit 10   --outdir output   --proxy-host "$PROXY_HOST"   --proxy-port "$PROXY_PORT"   --proxy-user "$PROXY_USER"   --proxy-pass "$PROXY_PASS"
+npm run scraper -- \
+  --driver hyper \
+  --site quora \
+  --topic "Growth Hacking" \
+  --limit 10 \
+  --outdir output \
+  --proxy-host "$PROXY_HOST" \
+  --proxy-port "$PROXY_PORT" \
+  --proxy-user "$PROXY_USER" \
+  --proxy-pass "$PROXY_PASS"
 ```
 
 ---
@@ -251,8 +258,6 @@ Scopes include: `core:browser`, `adapter:quora`, `runner`, `storage`, and `cli`.
 - 🌍 **Proxy support** with authentication
 - 🚫 **No posting** — drafts stored locally only
 
-> If Quora enforces a hard block (e.g., CAPTCHA or device verification), document the event and switch to **Indie Hackers** fallback.
-
 ---
 
 ## 📦 Output Schema
@@ -279,20 +284,13 @@ Unit tests use **JSDOM** to validate Quora’s DOM selectors.
 ```bash
 npm test
 # or test specific file
-npm test --file src/sites/quora/adapter.test.ts
+npm test --file src/sites/quora/dom.test.ts
 ```
-
-### Validates:
-- `hasLoginForm` — detects presence of login fields/buttons
-- `isSubmitEnabled` — ensures button enablement logic works correctly
-
-> **TDD tip:** Keep fixtures small and focused; each test should assert one behavior (e.g., “submit button is disabled until fields are filled”). This keeps failures obvious and speeds up iteration.
 
 ---
 
-## 🎥 Demo & Samples
+## Samples and Logs
 
-- **Demo video (Loom):** *Add link here*
 - **Sample outputs:** `output/quora_growth_hacking.json` and `.csv`
 - **Logs:** `logs/2025-10-03-*.log` (scoped by module)
 
