@@ -218,7 +218,7 @@ QUORA_PASS=strong-password
 
 ---
 
-## 🏗 How It Works (Architecture)
+## How It Works (Architecture)
 
 ### Adapter Pattern
 Each platform implements a `SiteAdapter` defining its capabilities:
