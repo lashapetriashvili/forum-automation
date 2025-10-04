@@ -16,8 +16,15 @@ import {
   QUESTION_SEL,
   hasLoginForm,
   isSubmitEnabled,
-  hasSearchForm,
+  ensureSearchFormPresent,
+  focusAndType,
+  suggestionsReady,
+  clickTopicSuggestionInPage,
+  resolveTopicHrefOnPage,
   hasQuestions,
+  topicLabel,
+  expandMoreToggles,
+  extractQuestionBatchOnPage,
 } from "./dom";
 
 type Deps = {
@@ -32,19 +39,23 @@ export function createQuoraAdapter(deps: Deps): SiteAdapter {
 
   return {
     /**
-     * Site name
+     * Site identifier name
      */
     name: "quora",
 
     /**
-     * Capabilities supported by this adapter
+     * Site capabilities
+     * - login: can log in
+     * - search: can search for topics
+     * - collectQuestions: can collect questions for a topic
      */
     capabilities: ["login", "search", "collectQuestions"],
 
     /**
-     * Ensure the user is logged in. Returns true if logged in, false on failure.
+     * Ensure the user is logged in
      *
-     * If already logged in, returns true immediately.
+     * @param page Puppeteer Page instance
+     * @returns true if logged in or login succeeded, false otherwise
      */
     async ensureLoggedIn(page: Page): Promise<boolean> {
       await loadTarget(page, routes.resolve("LOGIN"));
@@ -78,13 +89,14 @@ export function createQuoraAdapter(deps: Deps): SiteAdapter {
       const tasks: Promise<void>[] = [page.click(SUBMIT_SEL)];
 
       if (isHyperDriver(deps.driver)) {
-        const navPromise: Promise<void> = page
-          .waitForNavigation({ waitUntil: "networkidle2", timeout: 60_000 })
-          .then(() => {})
-          .catch(() => {
-            log.error(`[${this.name}] navigation after login did not occur (continuing)`);
-          });
-        tasks.push(navPromise);
+        tasks.push(
+          page
+            .waitForNavigation({ waitUntil: "networkidle2", timeout: 60_000 })
+            .then(() => {})
+            .catch(() => {
+              log.error(`[${this.name}] navigation after login did not occur (continuing)`);
+            })
+        );
       }
 
       await Promise.allSettled(tasks);
@@ -96,93 +108,82 @@ export function createQuoraAdapter(deps: Deps): SiteAdapter {
 
       const stillHasForm = await page.evaluate(hasLoginForm, EMAIL_SEL, PASS_SEL, SUBMIT_SEL);
       const ok = !stillHasForm;
-
-      if (!ok) {
-        log.error(`[${this.name}] login form still present after submit`);
-      }
+      if (!ok) log.error(`[${this.name}] login form still present after submit`);
       return ok;
     },
 
     /**
-     * Perform a search for the given topic.
-     * Returns true if search was performed, false on failure.
+     * Search for a topic and navigate to its page
+     * @param page Puppeteer Page instance
+     * @param topic Topic name to search for
+     * @returns true if search was performed (even if topic not found), false on error
      */
     async search(page: Page, topic: string): Promise<boolean> {
       // await loadTarget(page, routes.resolve("SEARCH"));
 
-      const hasForm = await page
-        .waitForFunction(hasSearchForm, { timeout: 30_000 }, SEARCH_SEL)
-        .catch(() => false);
+      const want = topicLabel(topic);
 
-      if (!hasForm) {
+      const okForm = await ensureSearchFormPresent(page, SEARCH_SEL, 30_000);
+      if (!okForm) {
         log.error(`[${this.name}] search form not found`);
         return false;
       }
 
-      await page.waitForSelector(SEARCH_SEL, { timeout: 30_000, visible: true });
-      const searchHandle = await page.$(SEARCH_SEL);
-      if (!searchHandle) {
+      const typed = await focusAndType(page, SEARCH_SEL, topic);
+      if (!typed) {
         log.error(`[${this.name}] search input handle missing`);
         return false;
       }
-      await searchHandle.click({ clickCount: 1 });
-      await searchHandle.type(topic, { delay: 40 });
 
-      const ok = await page
-        .waitForFunction(
-          (sel) => document.querySelectorAll(sel).length > 0,
-          { timeout: 10_000, polling: 100 },
-          SEARCH_SELECTOR_SEL
-        )
-        .then(() => true)
-        .catch(() => false);
-
-      if (!ok) {
+      const ready = await suggestionsReady(page, SEARCH_SELECTOR_SEL, 10_000);
+      if (!ready) {
         log.warn(`[${this.name}] no suggestions appeared for "${topic}"`);
-        return true;
+        return true; // best-effort
       }
 
-      const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
-      const target = norm(`Topic: ${topic}`);
+      let clicked = await clickTopicSuggestionInPage(page, SEARCH_SELECTOR_SEL, want);
 
-      const els = await page.$$(SEARCH_SELECTOR_SEL);
-
-      let clicked = false;
-      for (const el of els) {
-        const text = await el.evaluate((node) =>
-          (node.textContent || "").replace(/\s+/g, " ").toLowerCase().trim()
-        );
-
-        if (text === target) {
-          await el.evaluate((node) => node.scrollIntoView({ block: "center", inline: "center" }));
-
-          try {
-            await el.click({ delay: 20 });
-          } catch {
-            await el.evaluate((node) =>
-              node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
-            );
-          }
+      if (!clicked) {
+        try {
+          await page.keyboard.press("ArrowDown");
+          await page.keyboard.press("Enter");
           clicked = true;
-          break;
+        } catch {
+          // ignore
         }
       }
 
       if (!clicked) {
-        console.warn(`[quora] Topic suggestion not found for "${topic}"`);
+        const href = await resolveTopicHrefOnPage(page, SEARCH_SELECTOR_SEL, want);
+        if (href) {
+          await Promise.allSettled([
+            page
+              .waitForNavigation({ waitUntil: "domcontentloaded", timeout: 10_000 })
+              .catch(() => {}),
+            page.goto(href, { waitUntil: "domcontentloaded" }),
+          ]);
+          clicked = true;
+        }
+      }
+
+      if (clicked) {
+        await waitForRedirectAndReady(page, { timeout: 10_000 });
       } else {
-        await waitForRedirectAndReady(page, {
-          timeout: 10_000,
-        });
+        log.warn(
+          `[${this.name}] Topic suggestion not found for "${topic}" (want label: "${want}")`
+        );
       }
 
       return true;
     },
 
     /**
-     * Collect question items from the current topic page, up to the specified limit.
-     * Returns an array of QuestionItem objects.
-     * If no questions are found or an error occurs, returns an empty array.
+     * Collect question items for a given topic
+     *
+     * @param page Puppeteer Page instance
+     * @param topic Topic name (for metadata only)
+     * @param limit Maximum number of questions to collect
+     * @returns Array of question items (may be empty)
      */
     async collectQuestions(page: Page, topic: string, limit: number): Promise<QuestionItem[]> {
       const results: QuestionItem[] = [];
@@ -202,43 +203,10 @@ export function createQuoraAdapter(deps: Deps): SiteAdapter {
       let lastCount = -1;
 
       while (results.length < limit) {
-        const clicked = await page.$$eval(QUESTION_CARD_SEL, (els) => {
-          let c = 0;
-          for (const el of els) {
-            const txt = (el.textContent || "").replace(/\s+/g, " ").trim();
-            if (txt === "(more)") {
-              (el as HTMLElement).dispatchEvent(
-                new MouseEvent("click", { bubbles: true, cancelable: true })
-              );
-              c++;
-            }
-          }
-          return c;
-        });
+        const clicked = await expandMoreToggles(page, QUESTION_CARD_SEL);
         if (clicked) await sleep(1_000);
 
-        const batch = await page.$$eval(QUESTION_SEL, (els) => {
-          const out: { question: string; url: string }[] = [];
-          for (const el of els) {
-            const titleNode =
-              el.querySelector(".qu-userSelect--text") ||
-              el.querySelector(".puppeteer_test_question_title") ||
-              el.querySelector('[data-test-id="question_link"]');
-
-            const question = (el.textContent || "").replace(/\s+/g, " ").trim();
-
-            const a =
-              (titleNode &&
-                (titleNode.closest("a") ||
-                  (titleNode.querySelector && titleNode.querySelector("a")))) ||
-              el.querySelector('a[href^="https://www.quora.com/"]');
-
-            const url = a ? (a as HTMLAnchorElement).href : "";
-
-            if (question && url) out.push({ question, url });
-          }
-          return out;
-        });
+        const batch = await extractQuestionBatchOnPage(page, QUESTION_SEL);
 
         for (const { question, url } of batch) {
           if (results.length >= limit) break;
@@ -252,10 +220,8 @@ export function createQuoraAdapter(deps: Deps): SiteAdapter {
         if (results.length === lastCount) {
           await page.evaluate(() => window.scrollBy(0, Math.floor(window.innerHeight * 0.9)));
           await sleep(400);
-
-          const after = results.length;
-          const more = await page.$$eval(QUESTION_SEL, (els) => els.length);
-          if (results.length === after && more === 0) break;
+          const moreCount = await page.$$eval(QUESTION_SEL, (els) => els.length);
+          if (results.length === lastCount && moreCount === 0) break;
         } else {
           lastCount = results.length;
         }
