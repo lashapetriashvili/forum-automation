@@ -20,7 +20,7 @@
 
 ---
 
-## 🧪 Local Development Mode (Fixtures) vs. Hyperbrowser
+## Local Development Mode (Fixtures) vs. Hyperbrowser
 
 > **TL;DR**: Use `--driver local` to run the workflow entirely **offline** against HTML fixtures. It’s **fast**, **safe**, and **cost-effective** — no Hyperbrowser session required.
 
@@ -117,7 +117,7 @@ npm run scraper -- \
 
 > ⚠️ Hyperbrowser is ideal for end-to-end verification and production-grade runs, but **local fixtures** are best for day-to-day development.
 
-## 🗂 Project Structure
+## Project Structure
 
 ```
 .
@@ -145,7 +145,7 @@ npm run scraper -- \
 └── config files           # .env.example, eslint, jest, tsconfig, package.json
 ```
 
-## 🚀 What It Does
+## What It Does
 
 - **Login** to Quora using credentials from `.env`
 - **Navigate** to a topic (e.g., “Growth Hacking”)
